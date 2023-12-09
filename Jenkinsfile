@@ -68,7 +68,7 @@ pipeline {
             steps {
                 script{
                     withDockerRegistry(credentialsId: 'docker', toolName: 'docker') {
-                        sh "docker build -t jmcglobal/shopping-cart -f docker/."
+                        sh "docker build -t jmcglobal/shopping-cart -f docker/Dockerfile ."
                         sh " docker push jmcglobal/shopping-cart:latest"
                     }
                 }
