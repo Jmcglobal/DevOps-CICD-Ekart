@@ -1,63 +1,84 @@
 pipeline {
     agent any
-    tools{
-        jdk  'jdk11'
-        maven  'maven3'
-    }
     
-    environment{
-        SCANNER_HOME= tool 'sonar-scanner'
+    tools{
+        // jdk 'jdk-11'
+        maven 'maven3'
+    }
+
+    environment {
+        SONAR_TOKEN = credentials('sonar')
+        SONAR_URL = 'http://3.238.217.125:9000'
+        SONAR_PROJECT_KEY ='sonarqube'
     }
     
     stages {
-        stage('Git Checkout') {
+        stage('Git Clone') {
             steps {
-                git branch: 'main', changelog: false, credentialsId: '15fb69c3-3460-4d51-bd07-2b0545fa5151', poll: false, url: 'https://github.com/jaiswaladi246/Shopping-Cart.git'
+                git branch: 'main', url: 'https://github.com/Jmcglobal/DevOps-CICD-Ekart'
             }
         }
         
-        stage('COMPILE') {
+        stage('mvn compile command') {
             steps {
-                sh "mvn clean compile -DskipTests=true"
+                sh "mvn compile"
             }
         }
         
-        stage('OWASP Scan') {
+        stage('mvn test command') {
             steps {
-                dependencyCheck additionalArguments: '--scan ./ ', odcInstallation: 'DP'
+                sh "mvn test"
+            }
+        }
+
+        stage('Sonarqube Analysis') {
+            steps {
+                withSonarQubeEnv('sonarqube') {
+                    sh '''mvn clean verify sonar:sonar \
+                    -Dsonar.projectName=Petclinic \
+                    -Dsonar.projectKey=Petclinic'''
+                }
+            }
+        }
+
+    // OR
+        // stage('Sonarqube Analysis') {
+        //     steps {
+        //       sh '''mvn clean verify sonar:sonar \
+        //         -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
+        //         -Dsonar.host.url=${SONAR_URL} \
+        //         -Dsonar.login=${SONAR_TOKEN}'''
+        //     }
+        // }
+        
+        stage('mvn clean package') {
+            steps {
+                sh "mvn clean package"
+            }
+        }
+
+        stage('Dependency-Check') {
+            steps {
+                dependencyCheck additionalArguments: '--scan target/', odcInstallation: 'owasp'
                 dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
             }
         }
-        
-        stage('Sonarqube') {
-            steps {
-                withSonarQubeEnv('sonar-server'){
-                   sh ''' $SCANNER_HOME/bin/sonar-scanner -Dsonar.projectName=Shopping-Cart \
-                   -Dsonar.java.binaries=. \
-                   -Dsonar.projectKey=Shopping-Cart '''
-               }
-            }
-        }
-        
-        stage('Build') {
-            steps {
-                sh "mvn clean package -DskipTests=true"
-            }
-        }
-        
-        stage('Docker Build & Push') {
+
+        stage('DOCKER BUILDS AND PUSH') {
             steps {
                 script{
-                    withDockerRegistry(credentialsId: '2fe19d8a-3d12-4b82-ba20-9d22e6bf1672', toolName: 'docker') {
-                        
-                        sh "docker build -t shopping-cart -f docker/Dockerfile ."
-                        sh "docker tag  shopping-cart adijaiswal/shopping-cart:latest"
-                        sh "docker push adijaiswal/shopping-cart:latest"
+                    withDockerRegistry(credentialsId: 'docker', toolName: 'docker') {
+                        sh "docker build -t jmcglobal/shopping-cart -f docker/."
+                        sh " docker push jmcglobal/shopping-cart:latest"
                     }
                 }
             }
         }
-        
-        
+
+        stage('DOCKER RUN COMMAND') {
+            steps {
+                sh "docker run -d --rm --name cart -p8070:8070 jmcglobal/shopping-cart"
+            }
+        }
     }
 }
