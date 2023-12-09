@@ -15,7 +15,7 @@ pipeline {
     stages {
         stage('Git Clone') {
             steps {
-                git branch: 'main', url: 'https://github.com/Jmcglobal/DevOps-CICD-Ekart'
+                git branch: 'master', url: 'https://github.com/Jmcglobal/DevOps-CICD-Ekart'
             }
         }
         
